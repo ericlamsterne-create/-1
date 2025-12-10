@@ -1,0 +1,7 @@
+{
+  "name": "LinguaFlow - Sentence Mastery",
+  "description": "A comprehensive English sentence building and memorization tool with AI-powered suggestions, synonym expansion, TTS, and pronunciation scoring.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
