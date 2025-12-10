@@ -1,14 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Login from './components/Login';
 import SentenceCard from './components/SentenceCard';
 import AudioControls from './components/AudioControls';
 import { SentenceData, AccentType, Session, UserAudio, DEFAULT_SENTENCE_TYPES } from './types';
 import { generateSingleSentence, generateStory, generateSpeech, pcmToAudioBuffer } from './services/geminiService';
-import { BookOpen, LogOut, Check, History, X, Sparkles, Wand2, Pause, Play, Loader2, CheckCircle2, Circle } from 'lucide-react';
+import { BookOpen, Check, History, X, Sparkles, Wand2, Pause, Play, Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
   // Data State
   const [history, setHistory] = useState<Session[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1); // -1 = New Draft Mode
@@ -75,11 +72,10 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Updated: Always save history when it changes, no login check needed
   useEffect(() => {
-    if (isLoggedIn) {
-        localStorage.setItem('linguaHistory', JSON.stringify(history));
-    }
-  }, [history, isLoggedIn]);
+    localStorage.setItem('linguaHistory', JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
       localStorage.setItem('linguaCustomTypes', JSON.stringify(customTypes));
@@ -313,8 +309,6 @@ const App: React.FC = () => {
       }
   };
 
-  if (!isLoggedIn) return <Login onLogin={() => setIsLoggedIn(true)} />;
-
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-48 font-sans selection:bg-green-900 selection:text-green-100">
       
@@ -330,7 +324,7 @@ const App: React.FC = () => {
                 <History className="w-5 h-5" />
                 <span className="text-sm font-medium hidden sm:block">历史记录</span>
              </button>
-             <button onClick={() => setIsLoggedIn(false)} className="p-2 text-zinc-600 hover:text-red-500 transition-colors"><LogOut className="w-5 h-5" /></button>
+             {/* LogOut button removed */}
           </div>
       </header>
 

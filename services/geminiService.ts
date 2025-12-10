@@ -1,10 +1,42 @@
-import { GoogleGenAI, Modality, Type } from "@google/genai";
+import { GoogleGenAI, Modality, Type, GenerateContentResponse } from "@google/genai";
 import { AccentType, PronunciationResult, WordDefinition } from "../types";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const audioCache = new Map<string, ArrayBuffer>();
 const definitionCache = new Map<string, WordDefinition>();
+
+// Helper: Retry mechanism for 503/Overloaded errors
+const retryApiCall = async <T>(
+  apiCall: () => Promise<T>, 
+  retries: number = 3, 
+  initialDelay: number = 2000
+): Promise<T> => {
+  let lastError: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await apiCall();
+    } catch (error: any) {
+      lastError = error;
+      const errorStr = error.toString() + JSON.stringify(error);
+      // Check for 503, 429, or specific "overloaded" messages
+      const isTransient = 
+        errorStr.includes('503') || 
+        errorStr.includes('overloaded') || 
+        errorStr.includes('UNAVAILABLE') ||
+        errorStr.includes('429');
+
+      if (isTransient && i < retries - 1) {
+        const delay = initialDelay * Math.pow(2, i); // Exponential backoff
+        console.warn(`Gemini API busy (503). Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      break; // Not transient or max retries reached
+    }
+  }
+  throw lastError;
+};
 
 // --- Single Sentence Generation ---
 
@@ -36,26 +68,27 @@ export const generateSingleSentence = async (
     }
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          content: { type: Type.STRING },
-          patterns: { type: Type.ARRAY, items: { type: Type.STRING } }
-        },
-        required: ["content", "patterns"]
-      }
-    }
-  });
-
   try {
+    const response = await retryApiCall<GenerateContentResponse>(() => ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            content: { type: Type.STRING },
+            patterns: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["content", "patterns"]
+        }
+      }
+    }));
+
     return JSON.parse(response.text || '{"content": "", "patterns": []}');
   } catch (e) {
-    return { content: response.text || "", patterns: [] };
+    console.error("generateSingleSentence failed after retries", e);
+    return { content: "", patterns: [] };
   }
 };
 
@@ -91,25 +124,26 @@ export const generateStory = async (
     }
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          content: { type: Type.STRING }
-        },
-        required: ["title", "content"]
-      }
-    }
-  });
-
   try {
+    const response = await retryApiCall<GenerateContentResponse>(() => ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: { type: Type.STRING }
+          },
+          required: ["title", "content"]
+        }
+      }
+    }));
+
     return JSON.parse(response.text || '{"title": "Error", "content": "Failed to generate story."}');
   } catch (e) {
+    console.error("generateStory failed after retries", e);
     return { title: "Error", content: "Failed to parse story generation result." };
   }
 };
@@ -128,21 +162,22 @@ export const getSynonyms = async (
     Output: JSON Array of strings.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-      },
-    },
-  });
-
   try {
+    const response = await retryApiCall<GenerateContentResponse>(() => ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+        },
+      },
+    }));
+
     return JSON.parse(response.text || "[]");
   } catch (e) {
+    console.error("getSynonyms failed after retries", e);
     return [];
   }
 };
@@ -163,29 +198,30 @@ export const getWordDefinition = async (word: string): Promise<WordDefinition> =
       Output JSON.
     `;
 
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    word: { type: Type.STRING },
-                    ipa: { type: Type.STRING },
-                    definition: { type: Type.STRING }
-                },
-                required: ["ipa", "definition"]
-            }
-        }
-    });
-
     try {
+        const response = await retryApiCall<GenerateContentResponse>(() => ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        word: { type: Type.STRING },
+                        ipa: { type: Type.STRING },
+                        definition: { type: Type.STRING }
+                    },
+                    required: ["ipa", "definition"]
+                }
+            }
+        }));
+
         const result = JSON.parse(response.text || "{}");
         const def = { ...result, word };
         definitionCache.set(word.toLowerCase(), def);
         return def;
     } catch(e) {
+        console.error("getWordDefinition failed after retries", e);
         return { word, ipa: "", definition: "查询失败" };
     }
 }
@@ -209,7 +245,7 @@ export const generateSpeech = async (
   const ai = getAI();
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await retryApiCall<GenerateContentResponse>(() => ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: cleanText }] }], 
       config: {
@@ -220,12 +256,12 @@ export const generateSpeech = async (
           },
         },
       },
-    });
+    }));
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {
         console.error("Gemini TTS Error: No inlineData found in response", response);
-        throw new Error("API returned no audio data. Please try again or check API key.");
+        throw new Error("API returned no audio data.");
     }
 
     const binaryString = atob(base64Audio);
@@ -248,6 +284,9 @@ export const generateSpeech = async (
 
 // Parallel fetch helper
 export const preloadAudioSentences = async (sentences: string[], voiceName: string): Promise<ArrayBuffer[]> => {
+    // Generate requests but handle individual failures gracefully if needed, 
+    // though Promise.all fails if one fails. 
+    // retryApiCall inside generateSpeech handles retries, so this should be more robust.
     const promises = sentences.map(s => generateSpeech(s, voiceName));
     return Promise.all(promises);
 };
@@ -293,32 +332,32 @@ export const evaluatePronunciation = async (
     3. "mistakes": array of strings. List ONLY the specific words that were mispronounced.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: {
-      parts: [
-        { inlineData: { mimeType: audioBlob.type || 'audio/webm', data: base64Audio } },
-        { text: prompt }
-      ]
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          score: { type: Type.INTEGER },
-          feedback: { type: Type.STRING },
-          mistakes: { type: Type.ARRAY, items: { type: Type.STRING } },
-        },
-        required: ["score", "feedback", "mistakes"]
-      },
-    },
-  });
-
   try {
+    const response = await retryApiCall<GenerateContentResponse>(() => ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: {
+        parts: [
+          { inlineData: { mimeType: audioBlob.type || 'audio/webm', data: base64Audio } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            score: { type: Type.INTEGER },
+            feedback: { type: Type.STRING },
+            mistakes: { type: Type.ARRAY, items: { type: Type.STRING } },
+          },
+          required: ["score", "feedback", "mistakes"]
+        },
+      },
+    }));
+
      return JSON.parse(response.text || "{}") as PronunciationResult;
   } catch (e) {
-      console.error(e);
-      return { score: 0, feedback: "评分服务暂时不可用", mistakes: [] };
+      console.error("evaluatePronunciation failed after retries", e);
+      return { score: 0, feedback: "评分服务暂时繁忙，请稍后再试", mistakes: [] };
   }
 };
