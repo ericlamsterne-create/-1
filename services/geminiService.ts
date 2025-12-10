@@ -208,38 +208,42 @@ export const generateSpeech = async (
   if (!process.env.API_KEY) throw new Error("API Key missing");
   const ai = getAI();
 
-  // Using Array structure for contents is more robust for some endpoints
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: cleanText }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: voiceName },
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: cleanText }] }], 
+      config: {
+        responseModalities: ['AUDIO'], // Use string literal to avoid import issues
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voiceName },
+          },
         },
       },
-    },
-  });
+    });
 
-  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!base64Audio) {
-      console.error("Gemini TTS Error: No inlineData", response);
-      throw new Error("No audio data returned from API");
-  }
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) {
+        console.error("Gemini TTS Error: No inlineData found in response", response);
+        throw new Error("API returned no audio data. Please try again or check API key.");
+    }
 
-  const binaryString = atob(base64Audio);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+    const binaryString = atob(base64Audio);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    const buffer = bytes.buffer;
+    // Save to Cache
+    audioCache.set(cacheKey, buffer);
+    
+    return buffer;
+  } catch (e) {
+    console.error("generateSpeech failed:", e);
+    throw e;
   }
-  
-  const buffer = bytes.buffer;
-  // Save to Cache
-  audioCache.set(cacheKey, buffer);
-  
-  return buffer;
 };
 
 // Parallel fetch helper

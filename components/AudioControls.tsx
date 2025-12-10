@@ -193,8 +193,11 @@ const AudioControls: React.FC<AudioControlsProps> = ({
         return;
     }
 
-    // Only check if it's NOT a simple recording (user recordings should play regardless of other context)
-    if (!currentVoice.isUser && !isShadowEnabled) {
+    // --- NEW LOGIC: Enforce all sentences are present unless it's a simple user recording ---
+    // User profile voices count as TTS, so they also need all sentences.
+    const isTTS = !currentVoice.isUser || (currentVoice.isUser && currentVoice.isProfile);
+    
+    if (isTTS && !isShadowEnabled) {
         alert("请先生成或填写所有句子的内容");
         return;
     }
@@ -478,7 +481,9 @@ const AudioControls: React.FC<AudioControlsProps> = ({
   };
 
   // Logic to disable Play button if it's a generated voice and sentences aren't full
-  const isPlayDisabled = !currentVoice.isUser && !isShadowEnabled;
+  // We check if it is TTS (Generated voice OR User Profile Voice)
+  const isTTS = !currentVoice.isUser || (currentVoice.isUser && currentVoice.isProfile);
+  const isPlayDisabled = isTTS && !isShadowEnabled;
 
   return (
     <>
@@ -564,7 +569,7 @@ const AudioControls: React.FC<AudioControlsProps> = ({
                             isRecordingShadow ? 'bg-red-900/20 border-red-500 text-red-500' : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500'}
                         `}
                     >
-                        {isEvaluating ? <Loader2 className="w-4 h-4 animate-spin"/> : isRecordingShadow ? <><Square className="w-4 h-4 fill-current"/> 停止</> : <><Activity className="w-4 h-4"/> 测评</>}
+                        {isEvaluating ? <Loader2 className="w-4 h-4 animate-spin"/> : isRecordingShadow ? <><Square className="w-4 h-4 fill-current"/> 停止</> : <><Activity className="w-4 h-4"/> 测试</>}
                     </button>
                     {!isShadowEnabled && (
                         <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
