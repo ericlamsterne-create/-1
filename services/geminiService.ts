@@ -9,8 +9,8 @@ const definitionCache = new Map<string, WordDefinition>();
 // Helper: Retry mechanism for 503/Overloaded errors
 const retryApiCall = async <T>(
   apiCall: () => Promise<T>, 
-  retries: number = 3, 
-  initialDelay: number = 2000
+  retries: number = 5, 
+  initialDelay: number = 1000
 ): Promise<T> => {
   let lastError: any;
   for (let i = 0; i < retries; i++) {
@@ -18,23 +18,37 @@ const retryApiCall = async <T>(
       return await apiCall();
     } catch (error: any) {
       lastError = error;
-      const errorStr = error.toString() + JSON.stringify(error);
-      // Check for 503, 429, or specific "overloaded" messages
+      
+      // Detailed Error Inspection
+      const errorStr = error.toString();
+      const errorJSON = JSON.stringify(error);
+      const combinedError = (errorStr + errorJSON).toLowerCase();
+      
+      // Check for common transient error codes and messages
+      // 503: Service Unavailable / Overloaded
+      // 429: Too Many Requests
       const isTransient = 
-        errorStr.includes('503') || 
-        errorStr.includes('overloaded') || 
-        errorStr.includes('UNAVAILABLE') ||
-        errorStr.includes('429');
+        combinedError.includes('503') || 
+        combinedError.includes('overloaded') || 
+        combinedError.includes('unavailable') ||
+        combinedError.includes('429') ||
+        combinedError.includes('resource exhausted') ||
+        combinedError.includes('internal server error');
 
-      if (isTransient && i < retries - 1) {
-        const delay = initialDelay * Math.pow(2, i); // Exponential backoff
-        console.warn(`Gemini API busy (503). Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+      if (isTransient) {
+        // Exponential backoff with jitter: 1s, 2s, 4s, 8s, 16s + random jitter
+        const delay = initialDelay * Math.pow(2, i) + Math.random() * 500; 
+        console.warn(`Gemini API Transient Error (${i + 1}/${retries}): ${error.message || 'Unknown'}. Retrying in ${Math.round(delay)}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
-      break; // Not transient or max retries reached
+      
+      // If it's a non-transient error (e.g., 400 Bad Request), throw immediately
+      throw error; 
     }
   }
+  
+  console.error("Gemini API Request failed after max retries.", lastError);
   throw lastError;
 };
 
@@ -87,7 +101,8 @@ export const generateSingleSentence = async (
 
     return JSON.parse(response.text || '{"content": "", "patterns": []}');
   } catch (e) {
-    console.error("generateSingleSentence failed after retries", e);
+    console.error("generateSingleSentence failed", e);
+    // Return empty result rather than throwing to prevent app crash
     return { content: "", patterns: [] };
   }
 };
@@ -143,8 +158,8 @@ export const generateStory = async (
 
     return JSON.parse(response.text || '{"title": "Error", "content": "Failed to generate story."}');
   } catch (e) {
-    console.error("generateStory failed after retries", e);
-    return { title: "Error", content: "Failed to parse story generation result." };
+    console.error("generateStory failed", e);
+    return { title: "Error", content: "AI 服务暂时繁忙，请稍后重试生成故事。" };
   }
 };
 
@@ -177,7 +192,7 @@ export const getSynonyms = async (
 
     return JSON.parse(response.text || "[]");
   } catch (e) {
-    console.error("getSynonyms failed after retries", e);
+    console.error("getSynonyms failed", e);
     return [];
   }
 };
@@ -221,7 +236,7 @@ export const getWordDefinition = async (word: string): Promise<WordDefinition> =
         definitionCache.set(word.toLowerCase(), def);
         return def;
     } catch(e) {
-        console.error("getWordDefinition failed after retries", e);
+        console.error("getWordDefinition failed", e);
         return { word, ipa: "", definition: "查询失败" };
     }
 }
@@ -249,7 +264,7 @@ export const generateSpeech = async (
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: cleanText }] }], 
       config: {
-        responseModalities: ['AUDIO'], // Use string literal to avoid import issues
+        responseModalities: [Modality.AUDIO], 
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: { voiceName: voiceName },
@@ -284,9 +299,9 @@ export const generateSpeech = async (
 
 // Parallel fetch helper
 export const preloadAudioSentences = async (sentences: string[], voiceName: string): Promise<ArrayBuffer[]> => {
-    // Generate requests but handle individual failures gracefully if needed, 
-    // though Promise.all fails if one fails. 
-    // retryApiCall inside generateSpeech handles retries, so this should be more robust.
+    // Process sequentially if we want to be nice to the rate limiter, but parallel is better for UX.
+    // Given the 503 issues, we might want to stagger them slightly or just rely on retryApiCall.
+    // Let's rely on retryApiCall's backoff.
     const promises = sentences.map(s => generateSpeech(s, voiceName));
     return Promise.all(promises);
 };
@@ -357,7 +372,7 @@ export const evaluatePronunciation = async (
 
      return JSON.parse(response.text || "{}") as PronunciationResult;
   } catch (e) {
-      console.error("evaluatePronunciation failed after retries", e);
-      return { score: 0, feedback: "评分服务暂时繁忙，请稍后再试", mistakes: [] };
+      console.error("evaluatePronunciation failed", e);
+      return { score: 0, feedback: "评分服务繁忙 (503)，请稍后重试", mistakes: [] };
   }
 };
