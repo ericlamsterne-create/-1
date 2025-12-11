@@ -1,3 +1,4 @@
+
 export interface SentenceData {
   type: string; 
   content: string;
@@ -28,6 +29,18 @@ export interface WordDefinition {
   word: string;
   ipa: string;
   definition: string; 
+}
+
+export interface UserProfile {
+  name: string;
+  role: string; // e.g. Software Engineer
+  interests: string; // e.g. Sci-fi movies, Hiking
+  people: string; // e.g. My brother Tom, My cat Luna
+  goals: string; // e.g. Improve speaking for job interview
+  englishLevel: string; // e.g. Beginner, Intermediate, Advanced
+  targetScore: string; // e.g. IELTS 7.0
+  favoriteTopics: string; // e.g. Technology, Art
+  importantExperiences: string; // e.g. Studied abroad, Won a competition
 }
 
 export const DEFAULT_SENTENCE_TYPES = [

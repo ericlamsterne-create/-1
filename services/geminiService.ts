@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality, Type, GenerateContentResponse } from "@google/genai";
-import { AccentType, PronunciationResult, WordDefinition } from "../types";
+import { AccentType, PronunciationResult, WordDefinition, UserProfile } from "../types";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -57,28 +57,105 @@ const retryApiCall = async <T>(
 export const generateSingleSentence = async (
   corePhrase: string,
   type: string,
-  draft: string
+  draft: string,
+  userProfile?: UserProfile
 ): Promise<{ content: string; patterns: string[] }> => {
   if (!process.env.API_KEY) throw new Error("API Key missing");
   const ai = getAI();
 
+  // 1. Construct Profile Context
+  let profileContext = "";
+  if (userProfile) {
+    profileContext = `
+    User Profile (Use relevant parts):
+    - Role/Job: ${userProfile.role}
+    - Interests: ${userProfile.interests}
+    - Key People: ${userProfile.people}
+    - Important Experiences: ${userProfile.importantExperiences}
+    - Target IELTS Score: ${userProfile.targetScore || "7.0"}
+    - Favorite Topics: ${userProfile.favoriteTopics}
+    `;
+  }
+
+  // 2. Determine IELTS Standard based on Type keywords
+  let ieltsStandard = "";
+  let structureInstruction = "";
+
+  const isObjective = type.includes("社会") || type.includes("客观") || type.includes("观点") || type.includes("Reason");
+  const isPersonal = type.includes("个人") || type.includes("经历") || type.includes("I") || type.includes("My");
+  
+  if (isObjective) {
+    // Strategy for IELTS Writing Task 2 / Speaking Part 3
+    ieltsStandard = `
+      STANDARD: IELTS Writing Task 2 / Speaking Part 3 (Academic & Logical).
+      TONE: Formal, Objective, Academic. Avoid 'I think' or slang.
+      FOCUS: Coherence & Cohesion (use linking words), Lexical Resource (topic-specific vocabulary).
+    `;
+    structureInstruction = `
+      STRUCTURE REQUIREMENT (Reason + Example): 
+      1. Present a clear argument/reason using the Core Phrase.
+      2. Immediately support it with a general example or consequence.
+      3. Use formal connectors (e.g., 'Consequently', 'For instance', 'Due to').
+    `;
+  } else {
+    // Strategy for IELTS Speaking Part 1 / Part 2
+    ieltsStandard = `
+      STANDARD: IELTS Speaking Part 1 (Conversational & Natural).
+      TONE: Native, Idiomatic, Fluid, Personal.
+      FOCUS: Natural collocation, idiomatic expressions, connecting thoughts naturally.
+    `;
+    structureInstruction = `
+      STRUCTURE REQUIREMENT (Personal Answer):
+      1. Answer as if speaking to an examiner about yourself.
+      2. Relate the Core Phrase directly to the user's life (Job, Hobby, Experience).
+      3. Use details from 'User Profile' (especially 'Important Experiences' or 'Role') to make it authentic.
+    `;
+  }
+
+  // 3. Draft Handling Logic
+  let taskInstruction = "";
+  const hasDraft = draft && draft.trim().length > 0;
+
+  if (hasDraft) {
+      taskInstruction = `
+      PRIMARY TASK: TRANSFORM USER INPUT.
+      The user has provided a draft thought: "${draft}".
+      
+      1. IF INPUT IS CHINESE:
+         - Translate it into high-quality English fitting the ${ieltsStandard} defined above.
+         - You MUST incorporate the Core Phrase "${corePhrase}" into the translation naturally.
+         - Refine the grammar and vocabulary to Band ${userProfile?.targetScore || "7.0"}+ level.
+      
+      2. IF INPUT IS ENGLISH:
+         - Proofread and Polish this sentence.
+         - Fix any grammar/collocation errors.
+         - Upgrade vocabulary to match the defined IELTS STANDARD.
+         - Ensure "${corePhrase}" is present and correctly used.
+      `;
+  } else {
+      taskInstruction = `
+      PRIMARY TASK: GENERATE FROM SCRATCH.
+      - Create a brand new sentence using the Core Phrase: "${corePhrase}".
+      - Strictly follow the STRUCTURE REQUIREMENT (${isObjective ? 'Reason+Example' : 'Personal Story'}).
+      - Use User Profile details to make it realistic and unique.
+      `;
+  }
+
   const prompt = `
-    Task: Create a high-quality English spoken sentence.
+    You are an expert IELTS Examiner and Language Coach.
     
-    Core Phrase: "${corePhrase}"
-    Type: ${type}
-    Context/Draft: "${draft}"
+    ${ieltsStandard}
     
-    Requirements:
-    1. Natural, authentic English spoken style.
-    2. Must include Core Phrase.
-    3. Use common English sentence patterns/structures/idioms where possible.
-    4. If Type is "Objective View", use "Reason + Example" structure.
+    ${structureInstruction}
+    
+    ${profileContext}
+    
+    ${taskInstruction}
     
     Output JSON Schema:
     {
-      "content": "The full English sentence.",
-      "patterns": ["List of common sentence patterns or idioms used in the sentence (excluding the core phrase)"]
+      "content": "The final polished English sentence.",
+      "patterns": ["List 1-2 advanced sentence structures or idioms used (e.g., 'Not only... but also', 'It is widely believed that...')"]
     }
   `;
 
@@ -102,7 +179,6 @@ export const generateSingleSentence = async (
     return JSON.parse(response.text || '{"content": "", "patterns": []}');
   } catch (e) {
     console.error("generateSingleSentence failed", e);
-    // Return empty result rather than throwing to prevent app crash
     return { content: "", patterns: [] };
   }
 };

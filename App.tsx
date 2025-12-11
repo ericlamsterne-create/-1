@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SentenceCard from './components/SentenceCard';
 import AudioControls from './components/AudioControls';
-import { SentenceData, AccentType, Session, UserAudio, DEFAULT_SENTENCE_TYPES } from './types';
+import UserProfileModal from './components/UserProfileModal';
+import { SentenceData, AccentType, Session, UserAudio, DEFAULT_SENTENCE_TYPES, UserProfile } from './types';
 import { generateSingleSentence, generateStory, generateSpeech, pcmToAudioBuffer } from './services/geminiService';
-import { BookOpen, Check, History, X, Sparkles, Wand2, Pause, Play, Loader2 } from 'lucide-react';
+import { BookOpen, Check, History, X, Sparkles, Wand2, Pause, Play, Loader2, UserCircle } from 'lucide-react';
 
 const App: React.FC = () => {
   // Data State
@@ -11,6 +12,20 @@ const App: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(-1); // -1 = New Draft Mode
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   
+  // User Profile State
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+      name: "",
+      role: "",
+      interests: "",
+      people: "",
+      goals: "",
+      englishLevel: "Intermediate",
+      targetScore: "6.5",
+      favoriteTopics: "",
+      importantExperiences: ""
+  });
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
   // Story Generation State
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -35,6 +50,7 @@ const App: React.FC = () => {
   const [accent, setAccent] = useState<AccentType>(AccentType.US);
 
   useEffect(() => {
+    // Load History
     const savedHistory = localStorage.getItem('linguaHistory');
     if (savedHistory) {
         try {
@@ -56,6 +72,7 @@ const App: React.FC = () => {
         }
     }
 
+    // Load Custom Types
     const savedTypes = localStorage.getItem('linguaCustomTypes');
     if (savedTypes) {
         try {
@@ -70,16 +87,20 @@ const App: React.FC = () => {
             }
         } catch (e) {}
     }
+
+    // Load User Profile
+    const savedProfile = localStorage.getItem('linguaUserProfile');
+    if (savedProfile) {
+        try {
+            setUserProfile(JSON.parse(savedProfile));
+        } catch(e) {}
+    }
   }, []);
 
-  // Updated: Always save history when it changes, no login check needed
-  useEffect(() => {
-    localStorage.setItem('linguaHistory', JSON.stringify(history));
-  }, [history]);
-
-  useEffect(() => {
-      localStorage.setItem('linguaCustomTypes', JSON.stringify(customTypes));
-  }, [customTypes]);
+  // Persistence Effects
+  useEffect(() => { localStorage.setItem('linguaHistory', JSON.stringify(history)); }, [history]);
+  useEffect(() => { localStorage.setItem('linguaCustomTypes', JSON.stringify(customTypes)); }, [customTypes]);
+  useEffect(() => { localStorage.setItem('linguaUserProfile', JSON.stringify(userProfile)); }, [userProfile]);
 
   useEffect(() => {
       // Reset selection when modal closes
@@ -109,8 +130,13 @@ const App: React.FC = () => {
     setIsGeneratingMap(prev => ({ ...prev, [index]: true }));
 
     try {
-        // Result now contains { content, patterns }
-        const result = await generateSingleSentence(corePhrase || "", targetItem.type, targetItem.draftInput || "");
+        // Pass userProfile to the generation service
+        const result = await generateSingleSentence(
+            corePhrase || "", 
+            targetItem.type, 
+            targetItem.draftInput || "",
+            userProfile
+        );
         
         if (isDraftMode) {
             setDraftSentences(prev => {
@@ -317,14 +343,23 @@ const App: React.FC = () => {
             <BookOpen className="w-6 h-6 text-green-500" /> LinguaFlow
           </div>
           <div className="flex items-center gap-4">
+             {/* Profile Button */}
+             <button 
+                onClick={() => setShowProfileModal(true)}
+                className="p-2 text-zinc-400 hover:text-green-400 hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2"
+                title="个人资料"
+             >
+                <UserCircle className="w-5 h-5" />
+                <span className="text-sm font-medium hidden sm:block">资料</span>
+             </button>
+
              <button 
                 onClick={() => setShowHistoryModal(true)}
                 className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2"
              >
                 <History className="w-5 h-5" />
-                <span className="text-sm font-medium hidden sm:block">历史记录</span>
+                <span className="text-sm font-medium hidden sm:block">历史</span>
              </button>
-             {/* LogOut button removed */}
           </div>
       </header>
 
@@ -390,6 +425,15 @@ const App: React.FC = () => {
         accent={accent}
         setAccent={setAccent}
       />
+
+      {/* User Profile Modal */}
+      {showProfileModal && (
+          <UserProfileModal 
+            initialProfile={userProfile}
+            onSave={(newProfile) => setUserProfile(newProfile)}
+            onClose={() => setShowProfileModal(false)}
+          />
+      )}
 
       {/* History Modal */}
       {showHistoryModal && (
