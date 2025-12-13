@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
 
@@ -11,7 +12,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="bg-zinc-900 p-10 rounded-3xl shadow-2xl w-full max-w-md text-center border border-zinc-800">
         <div className="mb-8">
             <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">LinguaFlow</h1>
-            <p className="text-zinc-500 text-sm">打造您的专属口语语料库</p>
+            <p className="text-zinc-500 text-sm">雅思口语核心语料库 & AI 陪练</p>
         </div>
         
         <div className="space-y-4">
