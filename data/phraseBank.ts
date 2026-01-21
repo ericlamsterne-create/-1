@@ -169,5 +169,17 @@ export const PHRASE_BANK: PhraseItem[] = [
      "cn": "我当时太紧张了，脑子一片空白。",
      "en": "I was so nervous that my mind went totally blank.",
      "phrases": ["mind went totally blank"]
+  },
+  {
+     "id": 26,
+     "cn": "我需要休假几天来养精蓄锐，恢复精力。",
+     "en": "I need to take a few days off to recharge my batteries.",
+     "phrases": ["recharge my batteries"]
+  },
+  {
+     "id": 27,
+     "cn": "出国留学确实开阔了我的眼界，让我接触到了不同的文化。",
+     "en": "Studying abroad really broadened my horizons and exposed me to different cultures.",
+     "phrases": ["broadened my horizons"]
   }
 ];

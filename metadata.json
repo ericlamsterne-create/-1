@@ -1,7 +1,8 @@
 {
-  "name": "LinguaFlow - Sentence Mastery",
+  "name": "Ieltsformula - Sentence Mastery",
   "description": "A comprehensive English sentence building and memorization tool with AI-powered suggestions, synonym expansion, TTS, and pronunciation scoring.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
   ]
 }

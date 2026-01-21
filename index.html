@@ -1,21 +1,184 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LinguaFlow</title>
+    <title>Ieltsformula</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Word Document Libraries -->
     <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+                sans: ['Nunito', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            },
+            colors: {
+                bg: {
+                    main: 'var(--bg-main)', 
+                    card: 'var(--bg-card)',
+                    input: 'var(--bg-input)',
+                    hover: 'var(--bg-hover)',
+                    subtle: 'var(--bg-subtle)',
+                },
+                fg: {
+                    main: 'var(--fg-main)',
+                    muted: 'var(--fg-muted)',
+                    sub: 'var(--fg-sub)',
+                },
+                border: {
+                    DEFAULT: 'var(--border-color)',
+                },
+                primary: {
+                    DEFAULT: 'var(--primary-color)',
+                    hover: 'var(--primary-hover)',
+                    active: 'var(--primary-active)',
+                    light: 'var(--primary-light)',
+                    text: 'var(--primary-text)',
+                },
+                duo: {
+                    green: '#58CC02',
+                    greenDark: '#46A302',
+                    blue: '#1CB0F6',
+                    blueDark: '#1899D6',
+                    purple: '#CE82FF',
+                    purpleDark: '#A366CC',
+                    orange: '#FF9600',
+                    orangeDark: '#CC7800',
+                    red: '#FF4B4B',
+                    redDark: '#D40000',
+                    gray: '#E5E5E5',
+                    grayDark: '#CECECE',
+                }
+            },
+            boxShadow: {
+                'glass': '0 4px 30px rgba(0, 0, 0, 0.05)',
+                'glass-lg': '0 10px 40px rgba(0, 0, 0, 0.08)',
+                'glass-hover': '0 20px 40px rgba(0, 0, 0, 0.12)',
+                'duo': '0 4px 0 var(--border-color)',
+                'duo-active': '0 0 0 var(--border-color)',
+            },
+            animation: {
+                'blob': 'blob 10s infinite alternate',
+                'fade-in': 'fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                'bounce-sm': 'bounceSm 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            },
+            keyframes: {
+                blob: {
+                    '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                    '33%': { transform: 'translate(30px, -30px) scale(1.1)' },
+                    '66%': { transform: 'translate(-20px, 20px) scale(0.95)' },
+                    '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                },
+                fadeIn: {
+                    '0%': { opacity: '0' },
+                    '100%': { opacity: '1' },
+                },
+                slideUp: {
+                    '0%': { transform: 'translateY(20px)', opacity: '0' },
+                    '100%': { transform: 'translateY(0)', opacity: '1' },
+                },
+                bounceSm: {
+                    '0%': { transform: 'scale(0.9)' },
+                    '50%': { transform: 'scale(1.05)' },
+                    '100%': { transform: 'scale(1)' },
+                }
+            }
+          }
+        }
+      }
+    </script>
     <style>
-      body { font-family: 'Inter', sans-serif; overflow-x: hidden; width: 100%; }
-      /* Custom scrollbar for better aesthetics */
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: #f1f1f1; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      :root {
+          /* --- Day Theme (Standard) --- */
+          --bg-main: #FFFFFF; 
+          --bg-card: #FFFFFF;
+          --bg-input: #F7F7F7;
+          --bg-hover: #F2F2F2;
+          --bg-subtle: #E5E5E5;
+          
+          --fg-main: #3C3C3C; 
+          --fg-muted: #777777;
+          --fg-sub: #AFAFAF;
+          
+          --border-color: #E5E5E5;
+          
+          --primary-color: #58CC02; 
+          --primary-hover: #46A302; 
+          --primary-active: #46A302;
+          --primary-light: rgba(88, 204, 2, 0.12);
+          --primary-text: #ffffff;
+      }
+
+      [data-theme='dark'] {
+          /* --- Midnight Theme (Duolingo Dark Mode) --- */
+          --bg-main: #131F24; /* Deep Slate Background */
+          --bg-card: #202F36; /* Lighter Slate for Cards */
+          --bg-input: #37464F; /* Even lighter for inputs */
+          --bg-hover: #2B3B44;
+          --bg-subtle: #202F36;
+          
+          --fg-main: #FFFFFF; /* White Text */
+          --fg-muted: #DDE4E8; /* Light Gray Text */
+          --fg-sub: #52656D; /* Muted Slate Text */
+          
+          --border-color: #37464F; /* Border matches input/separators */
+          
+          --primary-color: #58CC02;
+          --primary-hover: #46A302;
+          --primary-active: #46A302;
+          --primary-light: rgba(88, 204, 2, 0.2);
+          --primary-text: #ffffff;
+      }
+
+      body { 
+          font-family: 'Nunito', 'Inter', sans-serif; 
+          width: 100%; 
+          min-height: 100vh;
+          background-color: var(--bg-main);
+          color: var(--fg-main);
+          transition: background-color 0.3s ease, color 0.3s ease;
+          overflow-x: hidden;
+          -webkit-font-smoothing: antialiased;
+      }
+      
+      ::selection { background-color: var(--primary-light); color: var(--primary-color); }
+      
+      .glass-panel {
+          background: var(--bg-card);
+          border: 2px solid var(--border-color); 
+          border-radius: 1.5rem; 
+      }
+
+      .duo-btn {
+          border-bottom-width: 4px;
+          border-color: rgba(0,0,0,0.15);
+          transition: all 0.1s ease;
+      }
+      .duo-btn:active {
+          border-bottom-width: 0px;
+          transform: translateY(4px);
+          margin-top: 4px; 
+      }
+      .duo-btn:disabled {
+          border-bottom-width: 0px;
+          transform: none;
+          margin-top: 0;
+          opacity: 0.5;
+          cursor: not-allowed;
+      }
+      
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--fg-sub); }
     </style>
   <script type="importmap">
 {
@@ -24,12 +187,16 @@
     "react": "https://aistudiocdn.com/react@^19.2.1",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0"
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/"
   }
 }
 </script>
 </head>
-  <body class="bg-slate-50 text-slate-900">
+  <body>
     <div id="root"></div>
   </body>
 </html>
